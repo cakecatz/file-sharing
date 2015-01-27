@@ -1,0 +1,5 @@
+[package]
+
+name = "file-sharing"
+version = "0.0.1"
+authors = ["Ryo Narita <info@codedoc.net>"]
