@@ -1,7 +1,7 @@
 extern crate getopts;
-use std::io::{File, BufferedReader};
-use std::io::{TcpListener, TcpStream};
-use std::io::{Acceptor, Listener};
+use std::old_io::{File, BufferedReader, BufferedWriter};
+use std::old_io::{TcpListener, TcpStream};
+use std::old_io::{Acceptor, Listener};
 use std::thread::Thread;
 use std::os;
 
@@ -35,7 +35,7 @@ fn main() {
   // server
   if matches.opt_present("s") {
     println!("server");
-    let listener = TcpListener::bind("0.0.0.0:80").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:12345").unwrap();
     let mut acceptor = listener.listen().unwrap();
 
     for stream in acceptor.incoming() {
@@ -54,9 +54,22 @@ fn main() {
 
   if matches.opt_present("c") {
     println!("client");
-    let mut stream = TcpStream::connect("127.0.0.1:80").unwrap();
+    //let server = "172.31.99.66:12345";
+    let server = "0.0.0.0:12345";
+    let mut stream = TcpStream::connect(server.as_slice()).unwrap();
 
-    let _ = stream.write_str("Hello");
+    let path = Path::new("./test");
+    let mut file = BufferedReader::new(File::open(&path));
+    loop {
+      let mut buf = [0];
+      match file.read(&mut buf) {
+        Ok(ok) => {
+          stream.write_all(&mut buf);
+        },
+        Err(e) => break,
+      }
+    }
+
     stream.close_write();
 
     let mut buf = [0];
@@ -68,29 +81,37 @@ fn main() {
   };
 
   let file_path = match matches.opt_str("d") {
-    Some(s) => read_file( s.as_slice(), closure ),
+    Some(s) => read_file( s.as_slice()),
     None => (),
   };
 
 }
 
-fn read_file<F: Fn(&str)>(path_str: &str, f: F){
+fn read_file(path_str: &str){
   let path = Path::new(path_str);
   let mut file = BufferedReader::new(File::open(&path));
-  for line in file.lines() {
-    f(line.unwrap().as_slice());
+  loop {
+    match file.read_byte() {
+      Ok(byte) => println!("{}", byte),
+      Err(e) => break,
+    }
   }
-  return ();
+  return;
 }
 
 fn handle_client(mut stream: TcpStream) {
-  let req = match stream.read_to_string() {
-    Ok(s) => s,
-    Err(f) => {
-      println!("{}", f);
-      return;
+  let file = File::create(&Path::new("./received")).unwrap();
+  let mut writer = BufferedWriter::new(file);
+
+  loop {
+    let mut buf = [0];
+    match stream.read(&mut buf) {
+      Ok(ok) => {
+        writer.write_all(&mut buf);
+      },
+      Err(e) => break,
     }
-  };
+  }
+
   stream.write(&[1]);
-  println!("=> {}", req);
 }
